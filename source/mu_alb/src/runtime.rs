@@ -36,7 +36,7 @@ use crate::{response, AlbSerialize};
 /// ```
 pub async fn listen_events<F, Fut, A, B>(handler: F) -> mu_runtime::RuntimeResult
 where
-    F: Fn(A) -> Fut + Sync + Send,
+    F: Fn(A, Context) -> Fut + Sync + Send,
     Fut: Future<Output = B> + Send,
     A: AlbDeserialize<A> + Send,
     B: AlbSerialize,
@@ -54,14 +54,14 @@ async fn handle_rpc_req<F, Fut, A, B>(
     ctx: Context,
 ) -> Result<AlbTargetGroupResponse, Error>
 where
-    F: Fn(A) -> Fut + Sync + Send,
+    F: Fn(A, Context) -> Fut + Sync + Send,
     Fut: Future<Output = B> + Send,
     A: AlbDeserialize<A> + Send,
     B: AlbSerialize,
 {
-    let result: Result<A, Error> = A::from_alb_request(req, ctx);
+    let result: Result<(A, Context), Error> = A::from_alb_request(req, ctx);
     Ok(match result {
-        Ok(deserialized) => (func)(deserialized).await.to_alb_response(),
+        Ok((deserialized, context)) => (func)(deserialized, context).await.to_alb_response(),
         Err(cause) => response::create_as_plain_text(
             400, Some(format!("Bad Request {}", cause))
         ),

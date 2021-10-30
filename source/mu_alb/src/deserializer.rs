@@ -6,15 +6,15 @@ use mu_runtime::Context;
 use mu_runtime::Error;
 
 pub trait AlbDeserialize<T> {
-    fn from_alb_request(req: Request, ctx: Context) -> Result<T, Error>;
+    fn from_alb_request(req: Request, ctx: Context) -> Result<(T, Context), Error>;
 }
 
 impl AlbDeserialize<Request> for Request {
     fn from_alb_request(
         req: Request,
-        _: Context,
-    ) -> Result<Request, Error> {
-        Ok(req)
+        ctx: Context,
+    ) -> Result<(Request, Context), Error> {
+        Ok((req, ctx))
     }
 }
 
@@ -24,7 +24,7 @@ impl<T> AlbDeserialize<T> for T
 where
     T: for<'de> serde::Deserialize<'de> + RpcRequest,
 {
-    fn from_alb_request(req: Request, _ctx: Context) -> Result<T, Error> {
+    fn from_alb_request(req: Request, _ctx: Context) -> Result<(T, Context), Error> {
         match &req.body {
             Some(body) => match serde_json::from_str(body) {
                 Ok(deserialized) => Ok(deserialized),
