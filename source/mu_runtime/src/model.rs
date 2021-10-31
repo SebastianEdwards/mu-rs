@@ -30,6 +30,8 @@ pub struct Context {
     /// Includes information such as the function name, memory allocation,
     /// version, and log streams.
     pub env_config: Config,
+    // Number of times invoked
+    pub invokations: u32,
 }
 
 /// Client context sent by the AWS Mobile SDK.

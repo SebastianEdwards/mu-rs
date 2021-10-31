@@ -51,13 +51,13 @@ impl LambdaApiClient {
     }
 
     /// Fetches the next message to be processed.
-    pub async fn fetch_next_message(&self) -> Result<(Bytes, Context), LambdaApiError> {
+    pub async fn fetch_next_message(&self, invokations: u32) -> Result<(Bytes, Context), LambdaApiError> {
         let uri = format!("http://{}/2018-06-01/runtime/invocation/next", &self.config.endpoint);
         let uri = uri.parse()?;
         let resp = self.client.get(uri).await?;
         let (parts, body) = resp.into_parts();
         let body = hyper::body::to_bytes(body).await?;
-        let context = self.create_execution_context_from(parts.headers);
+        let context = self.create_execution_context_from(parts.headers, invokations);
 
         if !parts.status.is_success() {
             let error_msg = String::from_utf8(body.to_vec())?;
@@ -67,7 +67,7 @@ impl LambdaApiClient {
         Ok((body, context))
     }
 
-    fn create_execution_context_from(&self, headers: HeaderMap) -> Context {
+    fn create_execution_context_from(&self, headers: HeaderMap, invokations: u32) -> Context {
         Context {
             request_id: headers["lambda-runtime-aws-request-id"]
                 .to_str()
@@ -93,6 +93,7 @@ impl LambdaApiClient {
                 .map(|h| h.to_str().expect("Invalid CognitoIdentity sent by lambda"))
                 .map(|s| serde_json::from_str(s).expect("Invalid CognitoIdentity sent by lambda")),
             env_config: self.config.clone(),
+            invokations,
         }
     }
 
@@ -172,7 +173,7 @@ mod tests {
                 ..Config::default()
             });
 
-            let result = api.fetch_next_message().await;
+            let result = api.fetch_next_message(0).await;
             match result {
                 Ok(_) => panic!("Should not succeed in case of failures"),
                 Err(cause) => {
@@ -203,7 +204,7 @@ mod tests {
                 ..Config::default()
             });
 
-            let result = api.fetch_next_message().await;
+            let result = api.fetch_next_message(0).await;
             match result {
                 Err(cause) => panic!("Unexpected: {}", cause),
                 Ok((bytes, _ctx)) => {
@@ -237,7 +238,7 @@ mod tests {
                 endpoint: format!("localhost:{}", mock_server.port()),
                 ..Config::default()
             });
-            let result = api.fetch_next_message().await;
+            let result = api.fetch_next_message(0).await;
 
             match result {
                 Err(cause) => panic!("Unexpected: {}", cause),
@@ -288,7 +289,7 @@ mod tests {
                 endpoint: format!("localhost:{}", mock_server.port()),
                 ..Config::default()
             });
-            let result = api.fetch_next_message().await;
+            let result = api.fetch_next_message(0).await;
 
             match result {
                 Err(cause) => panic!("Unexpected: {}", cause),
