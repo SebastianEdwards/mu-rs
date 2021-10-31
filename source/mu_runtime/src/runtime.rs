@@ -40,16 +40,15 @@ pub type RuntimeResult = StdResult<(), Error>;
 /// }
 /// ```
 pub async fn listen_events<F, Fut, A, B, E>(handler: F) -> RuntimeResult
-    where F: Fn(A, Context, u32) -> Fut + Sync + Send,
+    where F: Fn(A, Context) -> Fut + Sync + Send,
           Fut: Future<Output=StdResult<B, E>> + Send,
           A: for<'de> Deserialize<'de> + Send,
           B: Serialize,
           E: StdError
 {
-    let invokations: u32 = 0;
     println!("Preparing to listen to events...");
     let lambda_api = LambdaApiClient::default();
-    listen_events_with(lambda_api, handler, invokations).await
+    listen_events_with(lambda_api, handler).await
 }
 
 /// Listen to AWS Lambda events and delegates the received payload to
@@ -57,16 +56,17 @@ pub async fn listen_events<F, Fut, A, B, E>(handler: F) -> RuntimeResult
 /// instance that will be used in the Lambda-consumption mainloop. This
 /// might be desirable for local testing.
 #[inline]
-pub async fn listen_events_with<F, Fut, A, B, E>(lambda_api: LambdaApiClient, handler: F, mut invokations: u32) -> RuntimeResult
-    where F: Fn(A, Context, u32) -> Fut + Sync + Send,
+pub async fn listen_events_with<F, Fut, A, B, E>(lambda_api: LambdaApiClient, handler: F) -> RuntimeResult
+    where F: Fn(A, Context) -> Fut + Sync + Send,
           Fut: Future<Output=StdResult<B, E>> + Send,
           A: for<'de> Deserialize<'de> + Send,
           B: Serialize,
           E: StdError
 {
+    let mut invocations = 0;
     loop {
-        invokations += 1;
-        try_invoke_lambda_handler(&lambda_api, &handler, invokations.clone()).await?;
+        invocations += 1;
+        try_invoke_lambda_handler(&lambda_api, &handler, invocations.clone()).await?;
         // allows one to perform single request tests during the Integration Tests.
         if cfg!(test) {
             return Ok(())
@@ -76,17 +76,17 @@ pub async fn listen_events_with<F, Fut, A, B, E>(lambda_api: LambdaApiClient, ha
 
 /// Performs the actual Lambda Invocation lifecycle.
 #[inline]
-async fn try_invoke_lambda_handler<F, Fut, A, B, E>(lambda_api: &LambdaApiClient, handler: &F, invokations: u32) -> RuntimeResult
-    where F: Fn(A, Context, u32) -> Fut + Sync + Send,
+async fn try_invoke_lambda_handler<F, Fut, A, B, E>(lambda_api: &LambdaApiClient, handler: &F, invocations: u32) -> RuntimeResult
+    where F: Fn(A, Context) -> Fut + Sync + Send,
           Fut: Future<Output=StdResult<B, E>> + Send,
           A: for<'de> Deserialize<'de> + Send,
           B: Serialize,
           E: StdError
 {
-    let (bytes, context) = lambda_api.fetch_next_message(invokations).await?;
+    let (bytes, context) = lambda_api.fetch_next_message(invocations).await?;
     let request_id = context.request_id.clone();
     let body = serde_json::from_slice(&bytes)?;
-    let result = (handler)(body, context, invokations).await;
+    let result = (handler)(body, context).await;
 
     match result {
         Ok(payload) => lambda_api.publish_response(request_id, payload).await?,
@@ -155,9 +155,9 @@ mod integration_tests {
 
         let lambda_api = create_lambda_api_for_testing(mock_server.port());
         let client = DynamoDbRepository::create();
-        let result = listen_events_with(lambda_api, |_req: AlbTargetGroupRequest, _ctx, _ivk| {
+        let result = listen_events_with(lambda_api, |_req: AlbTargetGroupRequest, _ctx| {
             client.a_method_that_will_succeed()
-        }, 0).await;
+        }).await;
 
         if let Err(cause) = result {
             panic!("Unexpected: {}", cause);
@@ -175,9 +175,9 @@ mod integration_tests {
 
         let lambda_api = create_lambda_api_for_testing(mock_server.port());
         let client = DynamoDbRepository::create();
-        let result = listen_events_with(lambda_api, |_req: AlbTargetGroupRequest, _ctx, _ivk| {
+        let result = listen_events_with(lambda_api, |_req: AlbTargetGroupRequest, _ctx| {
             client.a_method_that_will_fail()
-        }, 0).await;
+        }).await;
 
         if let Err(cause) = result {
             panic!("Unexpected: {}", cause);

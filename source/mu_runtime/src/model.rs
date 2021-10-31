@@ -31,7 +31,7 @@ pub struct Context {
     /// version, and log streams.
     pub env_config: Config,
     // Number of times invoked
-    pub invokations: u32,
+    pub invocations: u32,
 }
 
 /// Client context sent by the AWS Mobile SDK.
