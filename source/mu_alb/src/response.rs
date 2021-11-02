@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 /// Known content types.
 pub mod content_types {
+    pub const JAVASCRIPT: &str = "application/javascript";
     pub const JSON: &str = "application/json";
     pub const PLAIN_TEXT: &str = "text/plain";
 }
@@ -46,6 +47,11 @@ pub fn create_json_from_obj<T: Serialize>(status: i64, object: &T) -> Response {
         Ok(serialized) => create_as_json(status, Some(serialized)),
         Err(cause) => create_as_plain_text(500, Some(format!("{}", cause))),
     }
+}
+
+/// Creates an ALB-compatible response wrapping an optional object as JSON.
+pub fn create_as_javascript(status_code: i64, body: Option<String>) -> Response {
+    create_with_content_type(status_code, body, content_types::JAVASCRIPT.to_string())
 }
 
 /// Creates an ALB-compatible response wrapping an optional object as JSON.
