@@ -14,7 +14,7 @@ readme = "../../README.md"
 
 [dependencies]
 serde = "1.0.130"
-serde_json = "1.0.59"
+serde_json = "1.0.69"
 async-trait = "0.1.51"
 hyper = { version = "0.14.14", features = ["client","http1","tcp"] }
 
