@@ -13,10 +13,10 @@ readme = "../../README.md"
 [lib]
 
 [dependencies]
-serde = "1.0"
-serde_json = "1.0"
-async-trait = "0.1"
-hyper = { version = "0.14", features = ["client","http1","tcp"] }
+serde = "1.0.130"
+serde_json = "1.0.59"
+async-trait = "0.1.51"
+hyper = { version = "0.14.14", features = ["client","http1","tcp"] }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
